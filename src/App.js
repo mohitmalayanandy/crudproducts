@@ -1,237 +1,228 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react'
 
 const API_URL = "https://dummyjson.com/products";
+const ADD_URL = "https://dummyjson.com/products/add";
+const UPDATE_URL = "https://dummyjson.com/products/1"; 
 
 const App = () => {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [currentProductId, setCurrentProductId] = useState(null);
-  const [productForm, setProductForm] = useState({
-    title: "",
-    price: "",
-    category: "",
-    thumbnail: "",
-    discountPercentage: "",
-    rating: "",
-    stock: "",
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    title: '',
+    price: '',
+    discountPercentage: '',
+    rating: '',
+    stock: '',
+    category: '',
+    thumbnail: '',
   });
+  const [editingProductId, setEditingProductId] = useState(null);
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const fetchData = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(API_URL);
-      const result = await response.json();
-      setData(result.products.slice(0, 20));
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
+    const response = await fetch(API_URL);
+    const result = await response.json();
+    setData(result.products.slice(0, 20));
   };
 
-  const handleFormChange = (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-    setProductForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setNewProduct({ ...newProduct, [name]: value });
   };
 
-  const validateForm = () => {
-    const { title, price, category, thumbnail, discountPercentage, rating, stock } = productForm;
-    if (!title || !price || !category || !thumbnail || !discountPercentage || !rating || !stock) {
-      alert("All fields are required!");
-      return false;
-    }
-    return true;
-  };
+  const addProduct = async (e) => {
+    e.preventDefault();
 
-  const addProduct = () => {
-    if (!validateForm()) return;
-
-    const newProduct = {
-      id: currentProductId || Date.now(),
-      title: productForm.title,
-      price: Number(productForm.price),
-      category: productForm.category,
-      thumbnail: productForm.thumbnail,
-      discountPercentage: Number(productForm.discountPercentage),
-      rating: Number(productForm.rating),
-      stock: Number(productForm.stock),
-    };
-
-    if (editMode) {
-
-      setData((prevData) =>
-        prevData.map((product) =>
-          product.id === currentProductId ? { ...product, ...newProduct } : product
-        )
-      );
+    if (editingProductId) {
+      await updateProduct(editingProductId);
     } else {
+      const response = await fetch(ADD_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(newProduct),
+      });
 
-      setData((prevData) => [newProduct, ...prevData]);
+      const result = await response.json();
+      setData((prevData) => [result, ...prevData]);
     }
 
-    resetForm();
+    closeModal();
+  };
+
+  const updateProduct = async (id) => {
+    const response = await fetch(UPDATE_URL, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(newProduct),
+    });
+
+    const updatedProduct = await response.json();
+    setData((prevData) =>
+      prevData.map((product) =>
+        product.id === id ? updatedProduct : product
+      )
+    );
   };
 
   const handleEdit = (product) => {
-    setProductForm({
+    setEditingProductId(product.id);
+    setNewProduct({
       title: product.title,
-      price: product.price.toString(),
+      price: product.price,
+      discountPercentage: product.discountPercentage,
+      rating: product.rating,
+      stock: product.stock,
       category: product.category,
       thumbnail: product.thumbnail,
-      discountPercentage: product.discountPercentage.toString(),
-      rating: product.rating.toString(),
-      stock: product.stock.toString(),
     });
-    setCurrentProductId(product.id);
-    setEditMode(true);
-    setShowModal(true);
+    setIsModalOpen(true);
   };
 
-  const resetForm = () => {
-    setProductForm({
-      title: "",
-      price: "",
-      category: "",
-      thumbnail: "",
-      discountPercentage: "",
-      rating: "",
-      stock: "",
+  const closeModal = () => {
+    setEditingProductId(null);
+    setIsModalOpen(false);
+    setNewProduct({
+      title: '',
+      price: '',
+      discountPercentage: '',
+      rating: '',
+      stock: '',
+      category: '',
+      thumbnail: '',
     });
-    setEditMode(false);
-    setShowModal(false);
-    setCurrentProductId(null);
   };
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <h1 className="text-4xl font-bold text-center mb-6 text-gray-800">Product List</h1>
+      
+      <div className="flex justify-center mb-6">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="px-6 py-3 bg-blue-500 text-white rounded-xl shadow-md hover:bg-blue-600 transition"
+        >
+          Add Product
+        </button>
+      </div>
 
-      <button
-        onClick={() => {
-          resetForm();
-          setShowModal(true);
-        }}
-        className="mb-4 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-      >
-        + Add Product
-      </button>
-
-      {loading ? (
-        <p className="text-center text-lg text-gray-600">Loading...</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {data.map((product) => (
-            <div key={product.id} className="p-6 bg-white text-black rounded-xl shadow-xl">
-              <img
-                src={product.thumbnail}
-                alt={product.title}
-                className="w-full h-48 object-cover mt-4 rounded-lg shadow-md"
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md">
+            <h2 className="text-2xl font-bold mb-4 text-center">
+              {editingProductId ? 'Edit Product' : 'Add New Product'}
+            </h2>
+            <form onSubmit={addProduct} className="space-y-4">
+              <input
+                type="text"
+                name="title"
+                value={newProduct.title}
+                onChange={handleChange}
+                placeholder="Title"
+                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
               />
-              <h2 className="text-2xl font-semibold mb-2">{product.title}</h2>
-              <p className="text-lg text-gray-700">Price: ${product.price}</p>
-              <p className="text-md text-gray-600">
-                Discount Price: <span className="font-bold">${product.discountPercentage}</span>
-              </p>
-              <p className="text-md text-gray-600">
-                Rating: <span className="font-bold">{product.rating}⭐</span>
-              </p>
-              <p className="text-md text-gray-600">In Stock: {product.stock} left</p>
-              <p className="text-md text-gray-600">Category: {product.category}</p>
-              <button
-                onClick={() => handleEdit(product)}
-                className="mt-4 px-5 py-2 bg-blue-500 text-white rounded-lg shadow-md hover:bg-blue-700"
-              >
-                Edit
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center">
-          <div className="bg-white p-6 rounded-lg w-96">
-            <h2 className="text-xl font-bold mb-4">{editMode ? "Edit Product" : "Add New Product"}</h2>
-            <input
-              type="text"
-              name="title"
-              placeholder="Title"
-              value={productForm.title}
-              onChange={handleFormChange}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <input
-              type="number"
-              name="price"
-              placeholder="Price"
-              value={productForm.price}
-              onChange={handleFormChange}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <input
-              type="text"
-              name="category"
-              placeholder="Category"
-              value={productForm.category}
-              onChange={handleFormChange}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <input
-              type="text"
-              name="thumbnail"
-              placeholder="Thumbnail URL"
-              value={productForm.thumbnail}
-              onChange={handleFormChange}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <input
-              type="number"
-              name="discountPercentage"
-              placeholder="Discount %"
-              value={productForm.discountPercentage}
-              onChange={handleFormChange}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <input
-              type="number"
-              name="rating"
-              placeholder="Rating"
-              value={productForm.rating}
-              onChange={handleFormChange}
-              className="w-full p-2 mb-2 border rounded"
-            />
-            <input
-              type="number"
-              name="stock"
-              placeholder="Stock"
-              value={productForm.stock}
-              onChange={handleFormChange}
-              className="w-full p-2 mb-4 border rounded"
-            />
-
-            <div className="flex justify-end gap-2">
-              <button onClick={resetForm} className="px-4 py-2 bg-gray-400 text-white rounded hover:bg-gray-500">
-                Cancel
-              </button>
-              <button onClick={addProduct} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                {editMode ? "Update" : "Add"}
-              </button>
-            </div>
+              <input
+                type="number"
+                name="price"
+                value={newProduct.price}
+                onChange={handleChange}
+                placeholder="Price"
+                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="number"
+                name="discountPercentage"
+                value={newProduct.discountPercentage}
+                onChange={handleChange}
+                placeholder="Discount Percentage"
+                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="number"
+                name="rating"
+                value={newProduct.rating}
+                onChange={handleChange}
+                placeholder="Rating"
+                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="number"
+                name="stock"
+                value={newProduct.stock}
+                onChange={handleChange}
+                placeholder="Stock"
+                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="text"
+                name="category"
+                value={newProduct.category}
+                onChange={handleChange}
+                placeholder="Category"
+                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="text"
+                name="thumbnail"
+                value={newProduct.thumbnail}
+                onChange={handleChange}
+                placeholder="Thumbnail URL"
+                className="w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <div className="flex justify-between">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 bg-gray-400 text-white rounded-xl hover:bg-gray-500 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-xl hover:bg-blue-600 transition"
+                >
+                  {editingProductId ? 'Update' : 'Add'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        {data.map((product) => (
+          <div key={product.id} className="p-6 bg-white text-black rounded-xl shadow-xl">
+            <img src={product.thumbnail} alt={product.title} className="w-full h-48 object-cover mt-4 rounded-lg shadow-md" />
+            <h3 className="text-2xl font-semibold mb-2">{product.title}</h3>
+            <p>Price: $ {product.price}</p>
+            <p>Discount: {product.discountPercentage}%</p>
+            <p>Rating: {product.rating}⭐</p>
+            <p>Stock: {product.stock}</p>
+            <p>Category: {product.category}</p>
+            <button
+              onClick={() => handleEdit(product)}
+              className="mt-4 px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition"
+            >
+              Edit
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
 
 export default App;
-
