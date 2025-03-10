@@ -48,7 +48,7 @@ const App = () => {
       });
 
       const result = await response.json();
-      setData((prevData) => [result, ...prevData]);
+      setData((prevData) => [...prevData, result]);
     }
 
     closeModal();
